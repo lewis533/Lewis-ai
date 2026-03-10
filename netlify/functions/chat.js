@@ -6,7 +6,7 @@ exports.handler = async (event) => {
     if (!key) return { statusCode: 200, body: JSON.stringify({ answer: "⚠️ Netlify Key Missing" }) };
 
     const genAI = new GoogleGenerativeAI(key);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
     const { text, history, imageBase64, imageType } = JSON.parse(event.body);
 
@@ -17,7 +17,6 @@ exports.handler = async (event) => {
 
     const chat = model.startChat({ history: cleanHistory });
 
-    // If image attached, send image + text together
     let result;
     if (imageBase64 && imageType) {
       result = await chat.sendMessage([
