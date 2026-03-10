@@ -6,7 +6,7 @@ exports.handler = async (event) => {
     if (!key) return { statusCode: 200, body: JSON.stringify({ answer: "⚠️ Netlify Key Missing" }) };
 
     const genAI = new GoogleGenerativeAI(key);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
     const { text, history, imageBase64, imageType } = JSON.parse(event.body);
 
