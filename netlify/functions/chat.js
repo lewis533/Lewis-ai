@@ -1,77 +1,42 @@
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
-
   try {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) return { statusCode: 200, body: JSON.stringify({ answer: "⚠️ Netlify Key Missing" }) };
+
+    const genAI = new GoogleGenerativeAI(key);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" });
+
     const { text, history, imageBase64, imageType } = JSON.parse(event.body);
-    const apiKey = process.env.GEMINI_API_KEY;
 
-    const contents = [];
+    const cleanHistory = (history || []).map(h => ({
+      role: h.role === 'user' ? 'user' : 'model',
+      parts: [{ text: String(h.content || " ") }]
+    }));
 
-    if (history && history.length > 0) {
-      history.forEach(msg => {
-        contents.push({
-          role: msg.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: msg.content || '' }]
-        });
-      });
-    }
+    const chat = model.startChat({ history: cleanHistory });
 
-    const parts = [];
+    // If image attached, send image + text together
+    let result;
     if (imageBase64 && imageType) {
-      parts.push({ inlineData: { mimeType: imageType, data: imageBase64 } });
+      result = await chat.sendMessage([
+        { inlineData: { mimeType: imageType, data: imageBase64 } },
+        { text: text || "What is in this image?" }
+      ]);
+    } else {
+      result = await chat.sendMessage(text || "Hello");
     }
-    if (text) {
-      parts.push({ text });
-    } else if (imageBase64) {
-      parts.push({ text: 'What is in this image?' });
-    }
-    contents.push({ role: 'user', parts });
-
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          generationConfig: {
-            temperature: 1,
-            maxOutputTokens: 8192,
-          },
-          systemInstruction: {
-            parts: [{
-              text: "You are a helpful, accurate and knowledgeable AI assistant. Answer any question the user asks — whether it's about science, math, coding, history, current events, creative writing, advice, or anything else. Give complete, well-reasoned answers. Use markdown formatting (bold, lists, code blocks) where it makes the response clearer. Never refuse a reasonable question. If you don't know something, say so honestly."
-            }]
-          }
-        })
-      }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.error('Gemini API error:', JSON.stringify(data));
-      return {
-        statusCode: res.status,
-        body: JSON.stringify({ answer: 'API error: ' + (data.error?.message || 'Unknown error') })
-      };
-    }
-
-    const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answer })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answer: result.response.text() }),
     };
-
   } catch (err) {
-    console.error('Function error:', err);
     return {
-      statusCode: 500,
-      body: JSON.stringify({ answer: 'Server error: ' + err.message })
+      statusCode: 200,
+      body: JSON.stringify({ answer: `System Note: ${err.message}` })
     };
   }
 };
