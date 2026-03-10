@@ -7,10 +7,8 @@ exports.handler = async (event) => {
     const { text, history, imageBase64, imageType } = JSON.parse(event.body);
     const apiKey = process.env.GEMINI_API_KEY;
 
-    // Build the contents array for Gemini
     const contents = [];
 
-    // Add chat history
     if (history && history.length > 0) {
       history.forEach(msg => {
         contents.push({
@@ -20,32 +18,19 @@ exports.handler = async (event) => {
       });
     }
 
-    // Build current user message parts
     const parts = [];
-
-    // If an image was attached, add it first
     if (imageBase64 && imageType) {
-      parts.push({
-        inlineData: {
-          mimeType: imageType,
-          data: imageBase64
-        }
-      });
+      parts.push({ inlineData: { mimeType: imageType, data: imageBase64 } });
     }
-
-    // Add the text prompt
     if (text) {
       parts.push({ text });
     } else if (imageBase64) {
       parts.push({ text: 'What is in this image?' });
     }
-
     contents.push({ role: 'user', parts });
 
-    const model = 'gemini-1.5-flash-latest';
-
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -67,7 +52,7 @@ exports.handler = async (event) => {
     const data = await res.json();
 
     if (!res.ok) {
-      console.error('Gemini API error:', data);
+      console.error('Gemini API error:', JSON.stringify(data));
       return {
         statusCode: res.status,
         body: JSON.stringify({ answer: 'API error: ' + (data.error?.message || 'Unknown error') })
@@ -86,7 +71,7 @@ exports.handler = async (event) => {
     console.error('Function error:', err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ answer: 'Server error. Please try again.' })
+      body: JSON.stringify({ answer: 'Server error: ' + err.message })
     };
   }
 };
