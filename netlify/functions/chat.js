@@ -42,7 +42,7 @@ exports.handler = async (event) => {
 
     contents.push({ role: 'user', parts });
 
-    const model = 'gemini-2.0-flash';
+    const model = 'gemini-1.5-flash';
 
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
